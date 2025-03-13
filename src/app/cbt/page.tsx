@@ -3,11 +3,10 @@
 import { useState, useEffect, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '@/lib/auth-context';
-import { useChat, NextStep, Message } from '@/lib/chat-context';
+import { useChat, NextStep} from '@/lib/chat-context';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
-import { toast } from 'sonner';
 
 export default function CBTPage() {
   const { user, isAuthenticated, isLoading, resetInactivityTimer } = useAuth();
@@ -116,7 +115,7 @@ export default function CBTPage() {
       <div className="mb-6 flex justify-between items-center">
         <div>
           <h1 className="text-3xl font-bold">CBT Therapy Session</h1>
-          <p className="text-muted-foreground">Let's work through your thoughts together</p>
+          <p className="text-muted-foreground">Let&apos;s work through your thoughts together</p>
         </div>
         <div className="flex gap-2">
           <Button 

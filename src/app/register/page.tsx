@@ -107,7 +107,7 @@ export default function RegisterPage() {
         return (
           <>
             <CardHeader className="space-y-1">
-              <CardTitle className="text-2xl font-bold text-center">What's your name?</CardTitle>
+              <CardTitle className="text-2xl font-bold text-center">What&apos;s your name?</CardTitle>
               <CardDescription className="text-center">
                 This helps us personalize your experience (optional)
               </CardDescription>
@@ -140,7 +140,7 @@ export default function RegisterPage() {
         return (
           <>
             <CardHeader className="space-y-1">
-              <CardTitle className="text-2xl font-bold text-center">What's your gender?</CardTitle>
+              <CardTitle className="text-2xl font-bold text-center">What&apos;s your gender?</CardTitle>
               <CardDescription className="text-center">
                 This helps us personalize your experience (optional)
               </CardDescription>
@@ -179,7 +179,7 @@ export default function RegisterPage() {
         return (
           <>
             <CardHeader className="space-y-1">
-              <CardTitle className="text-2xl font-bold text-center">What's your age?</CardTitle>
+              <CardTitle className="text-2xl font-bold text-center">What&apos;s your age?</CardTitle>
               <CardDescription className="text-center">
                 This helps us provide age-appropriate support (optional)
               </CardDescription>

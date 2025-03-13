@@ -134,7 +134,7 @@ export default function QuotesPage() {
       {quotes.length === 0 && !loading && (
         <div className="text-center py-12">
           <h3 className="text-xl font-semibold mb-2">No quotes found</h3>
-          <p className="text-muted-foreground mb-6">We couldn't find any quotes in our database.</p>
+          <p className="text-muted-foreground mb-6">We couldn&apos;t find any quotes in our database.</p>
           <Link href="/home">
             <Button>Return to Home</Button>
           </Link>

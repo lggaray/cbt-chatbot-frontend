@@ -3,13 +3,12 @@
 import { useState, useEffect, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '@/lib/auth-context';
-import { useChat, NextStep, Message, SurveyQuestionnaireOption, SurveyAnswer, SurveyResult } from '@/lib/chat-context';
+import { useChat, NextStep} from '@/lib/chat-context';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
 import { Progress } from '@/components/ui/progress';
-import { toast } from 'sonner';
 
 export default function CheckInPage() {
   const { user, isAuthenticated, isLoading, resetInactivityTimer } = useAuth();
@@ -24,7 +23,7 @@ export default function CheckInPage() {
     handleCheckInNextStep,
     
     // Survey state
-    surveyMode,
+    //surveyMode,
     surveyQuestionnaireOptions,
     currentSurveyQuestion,
     currentQuestionIndex,
@@ -158,7 +157,7 @@ export default function CheckInPage() {
       <div className="mb-6 flex justify-between items-center">
         <div>
           <h1 className="text-3xl font-bold">Daily Check-in</h1>
-          <p className="text-muted-foreground">Let's see how you're doing today</p>
+          <p className="text-muted-foreground">Let&apos;s see how you&apos;re doing today</p>
         </div>
         <div className="flex gap-2">
           <Button 

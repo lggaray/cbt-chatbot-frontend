@@ -1,7 +1,6 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '@/lib/auth-context';
 import { homeAPI } from '@/lib/api';
@@ -65,7 +64,7 @@ export default function HomePage() {
         const lastCheckIn = new Date(homeData.lastCheckIn!);
         const frequency = homeData.checkInFrequency;
         
-        let nextCheckIn = new Date(lastCheckIn);
+        const nextCheckIn = new Date(lastCheckIn); // Change to 'let' if you want to modify the original date
         
         switch (frequency) {
           case 'daily':

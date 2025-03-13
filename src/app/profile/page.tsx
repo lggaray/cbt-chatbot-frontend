@@ -111,13 +111,13 @@ export default function ProfilePage() {
     try {
       setLoading(true);
       // Using updateProfile instead of updateUserProfile
-      const updatedData = await userAPI.updateProfile({
-        id: user.id,
-        name: formData.name,
-        gender: formData.gender,
-        age: parseInt(formData.age),
-        checkInFrequency: formData.checkInFrequency,
-      });
+      //const updatedData = await userAPI.updateProfile({
+      //  id: user.id,
+      //  name: formData.name,
+      //  gender: formData.gender,
+      //  age: parseInt(formData.age),
+      //  checkInFrequency: formData.checkInFrequency,
+      //});
       
       if (profile) {
         const updatedProfile: UserProfile = {

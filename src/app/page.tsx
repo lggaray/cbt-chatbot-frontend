@@ -49,7 +49,7 @@ export default function WelcomePage() {
               {/* User Message */}
               <div className="flex items-start justify-end">
                 <div className="bg-primary p-3 rounded-lg max-w-[80%]">
-                  <p className="text-primary-foreground">I've been feeling anxious about my upcoming presentation.</p>
+                  <p className="text-primary-foreground">I&apos;ve been feeling anxious about my upcoming presentation.</p>
                 </div>
                 <div className="w-8 h-8 rounded-full bg-secondary flex items-center justify-center text-secondary-foreground ml-3">
                   <span className="text-sm font-semibold">You</span>
@@ -62,7 +62,7 @@ export default function WelcomePage() {
                   <span className="text-sm font-semibold">AI</span>
                 </div>
                 <div className="bg-muted p-3 rounded-lg max-w-[80%]">
-                  <p className="text-foreground">I understand that presentations can be stressful. Let's identify what thoughts might be contributing to your anxiety. Sign up to continue this conversation and start your CBT journey.</p>
+                  <p className="text-foreground">I understand that presentations can be stressful. Let&apos;s identify what thoughts might be contributing to your anxiety. Sign up to continue this conversation and start your CBT journey.</p>
                 </div>
               </div>
             </div>
