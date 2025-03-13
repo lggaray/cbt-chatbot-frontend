@@ -202,7 +202,7 @@ export const ChatProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     setCheckInNextSteps([]);
     
     try {
-      const response = await chatAPI.sendCheckInMessage(undefined, user.id, null);
+      const response = await chatAPI.sendCheckInMessage(undefined, null);
       
       const botMessage: Message = {
         id: 'welcome',
@@ -222,7 +222,7 @@ export const ChatProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
         })));
       }
     } catch (error) {
-      console.error('Error starting new check-in:', error);
+      console.error('Error starting new check-in session:', error);
     } finally {
       setCheckInLoading(false);
     }
@@ -235,7 +235,7 @@ export const ChatProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     setCheckInLoading(true);
     
     try {
-      const response = await chatAPI.sendCheckInMessage(undefined, user.id, checkInSessionId);
+      const response = await chatAPI.sendCheckInMessage(undefined, checkInSessionId);
       
       const botMessage: Message = {
         id: `resume-${Date.now()}`,
@@ -245,8 +245,6 @@ export const ChatProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
       };
       
       setCheckInMessages((prev) => {
-        // If we already have messages, add the resume message
-        // Otherwise, just set the resume message as the only message
         return prev.length > 0 ? [...prev, botMessage] : [botMessage];
       });
       
@@ -258,8 +256,10 @@ export const ChatProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
         })));
       }
     } catch (error) {
-      console.error('Error resuming check-in:', error);
+      console.error('Error resuming check-in session:', error);
       // If we can't resume, start a new session
+      localStorage.removeItem('checkInSessionId');
+      setCheckInSessionId(null);
       startNewCheckIn();
     } finally {
       setCheckInLoading(false);
@@ -282,7 +282,7 @@ export const ChatProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     setCheckInNextSteps([]);
     
     try {
-      const response = await chatAPI.sendCheckInMessage(message, user.id, checkInSessionId);
+      const response = await chatAPI.sendCheckInMessage(message, checkInSessionId);
       
       const botMessage: Message = {
         id: `bot-${Date.now()}`,
@@ -292,7 +292,6 @@ export const ChatProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
       };
       
       setCheckInMessages((prev) => [...prev, botMessage]);
-      setCheckInSessionId(response.session_id);
       
       if (response.next_steps && response.next_steps.length > 0) {
         setCheckInNextSteps(response.next_steps.map((step: string, index: number) => ({
@@ -316,7 +315,7 @@ export const ChatProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     setCheckInNextSteps([]);
     
     try {
-      const response = await chatAPI.sendCheckInMessage(step.action, user.id, checkInSessionId);
+      const response = await chatAPI.sendCheckInMessage(step.action, checkInSessionId);
       
       const botMessage: Message = {
         id: `bot-${Date.now()}`,
@@ -352,7 +351,7 @@ export const ChatProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     
     try {
       // Always pass null as session_id to create a new session
-      const response = await chatAPI.sendCBTMessage(undefined, user.id, null);
+      const response = await chatAPI.sendCBTMessage(undefined, null);
       
       const botMessage: Message = {
         id: 'welcome',
@@ -386,7 +385,7 @@ export const ChatProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     
     try {
       // First try to resume with the existing session ID
-      const response = await chatAPI.sendCBTMessage(undefined, user.id, cbtSessionId);
+      const response = await chatAPI.sendCBTMessage(undefined, cbtSessionId);
       
       const botMessage: Message = {
         id: `resume-${Date.now()}`,
@@ -437,7 +436,7 @@ export const ChatProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
       if (!cbtSessionId) {
         await startNewCBT();
         // After creating a new session, send the message
-        const newResponse = await chatAPI.sendCBTMessage(message, user.id, cbtSessionId);
+        const newResponse = await chatAPI.sendCBTMessage(message, cbtSessionId);
         
         const botMessage: Message = {
           id: `bot-${Date.now()}`,
@@ -457,7 +456,7 @@ export const ChatProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
         }
       } else {
         // Use existing session
-        const response = await chatAPI.sendCBTMessage(message, user.id, cbtSessionId);
+        const response = await chatAPI.sendCBTMessage(message, cbtSessionId);
         
         const botMessage: Message = {
           id: `bot-${Date.now()}`,
@@ -497,7 +496,7 @@ export const ChatProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     setCbtNextSteps([]);
     
     try {
-      const response = await chatAPI.sendCBTMessage(step.action, user.id, cbtSessionId);
+      const response = await chatAPI.sendCBTMessage(step.action, cbtSessionId);
       
       const botMessage: Message = {
         id: `bot-${Date.now()}`,
@@ -522,59 +521,68 @@ export const ChatProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     }
   };
   
-  // Survey actions
+  // Start a survey
   const startSurvey = async () => {
-    if (!user || checkInLoading) return;
+    if (!user) return;
     
-    setCheckInLoading(true);
     setSurveyMode(true);
-    setSurveyResults(null);
+    setCheckInLoading(true);
     
     try {
-      const response = await chatAPI.startSurvey(user.id, checkInSessionId);
+      const response = await chatAPI.startSurvey(checkInSessionId);
       
-      console.log('Start survey response:', response); // Add logging to debug
-      
-      setCheckInSessionId(response.session_id);
+      setCurrentSurveyQuestion(response.response);
       
       if (response.questionnaire_options) {
         setSurveyQuestionnaireOptions(response.questionnaire_options);
       }
+      
+      if (response.question_index !== undefined) {
+        setCurrentQuestionIndex(response.question_index);
+      }
+      
+      if (response.total_questions !== undefined) {
+        setTotalQuestions(response.total_questions);
+      }
+      
+      if (response.possible_answers) {
+        setPossibleAnswers(response.possible_answers);
+      }
+      
+      if (response.survey_results) {
+        setSurveyResults(response.survey_results);
+      }
     } catch (error) {
       console.error('Error starting survey:', error);
+      setSurveyMode(false);
     } finally {
       setCheckInLoading(false);
     }
   };
   
+  // Select a questionnaire
   const selectQuestionnaire = async (questionnaireId: string) => {
-    if (!user || checkInLoading || !checkInSessionId) return;
+    if (!user || !surveyMode) return;
     
     setCheckInLoading(true);
+    setCurrentQuestionnaireId(questionnaireId);
     
     try {
-      const response = await chatAPI.selectQuestionnaire(questionnaireId, user.id, checkInSessionId);
+      const response = await chatAPI.selectQuestionnaire(questionnaireId, checkInSessionId);
       
-      console.log('Questionnaire response:', response); // Add logging to debug
+      setCurrentSurveyQuestion(response.response);
       
-      setCurrentSurveyQuestion(response.current_question);
-      setCurrentQuestionIndex(response.question_index);
-      setTotalQuestions(response.total_questions);
-      
-      // Ensure possible_answers is properly formatted
-      if (response.possible_answers && Array.isArray(response.possible_answers)) {
-        // Map the possible_answers to the expected format if needed
-        const formattedAnswers = response.possible_answers.map((answer: SurveyAnswer) => ({
-          score: typeof answer.score === 'number' ? answer.score : parseInt(answer.score as string, 10),
-          text: answer.text
-        }));
-        setPossibleAnswers(formattedAnswers);
-      } else {
-        console.error('Invalid possible_answers format:', response.possible_answers);
-        setPossibleAnswers([]);
+      if (response.question_index !== undefined) {
+        setCurrentQuestionIndex(response.question_index);
       }
       
-      setCurrentQuestionnaireId(response.questionnaire_id);
+      if (response.total_questions !== undefined) {
+        setTotalQuestions(response.total_questions);
+      }
+      
+      if (response.possible_answers) {
+        setPossibleAnswers(response.possible_answers);
+      }
     } catch (error) {
       console.error('Error selecting questionnaire:', error);
     } finally {
@@ -582,43 +590,35 @@ export const ChatProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     }
   };
   
+  // Answer a survey question
   const answerSurveyQuestion = async (answerScore: number | string) => {
-    if (!user || checkInLoading || !checkInSessionId || !currentQuestionnaireId || !currentQuestionIndex) return;
+    if (!user || !surveyMode || !currentQuestionnaireId || currentQuestionIndex === null) return;
     
     setCheckInLoading(true);
     
     try {
+      // Convert string scores to numbers if needed
+      const numericScore = typeof answerScore === 'string' ? parseInt(answerScore as string, 10) : answerScore;
+      
       const response = await chatAPI.answerSurveyQuestion(
         currentQuestionnaireId,
         currentQuestionIndex,
-        typeof answerScore === 'string' ? parseInt(answerScore, 10) : answerScore,
-        user.id,
+        numericScore as number,
         checkInSessionId
       );
       
-      console.log('Answer response:', response); // Add logging to debug
+      setCurrentSurveyQuestion(response.response);
+      
+      if (response.question_index !== undefined) {
+        setCurrentQuestionIndex(response.question_index);
+      }
+      
+      if (response.possible_answers) {
+        setPossibleAnswers(response.possible_answers);
+      }
       
       if (response.survey_results) {
-        // Survey completed
         setSurveyResults(response.survey_results);
-      } else {
-        // Move to next question
-        setCurrentSurveyQuestion(response.current_question);
-        setCurrentQuestionIndex(response.question_index);
-        setTotalQuestions(response.total_questions);
-        
-        // Ensure possible_answers is properly formatted
-        if (response.possible_answers && Array.isArray(response.possible_answers)) {
-          // Map the possible_answers to the expected format if needed
-          const formattedAnswers = response.possible_answers.map((answer: SurveyAnswer) => ({
-            score: typeof answer.score === 'number' ? answer.score : parseInt(answer.score as string, 10),
-            text: answer.text
-          }));
-          setPossibleAnswers(formattedAnswers);
-        } else {
-          console.error('Invalid possible_answers format:', response.possible_answers);
-          setPossibleAnswers([]);
-        }
       }
     } catch (error) {
       console.error('Error answering survey question:', error);

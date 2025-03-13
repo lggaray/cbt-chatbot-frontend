@@ -148,20 +148,18 @@ export const homeAPI = {
 
 // Chat API
 export const chatAPI = {
-  sendCheckInMessage: async (message: string | undefined, userId: number, sessionId: string | null, mode: string = 'non-clinical') => {
+  sendCheckInMessage: async (message: string | undefined, sessionId: string | null, mode: string = 'non-clinical') => {
     const response = await api.post('/chat/check-in', {
       message: message ?? '',
-      user_id: userId,
       session_id: sessionId,
       mode: mode,
     });
     return response.data;
   },
   
-  sendCBTMessage: async (message: string | undefined, userId: number, sessionId: string | null) => {
+  sendCBTMessage: async (message: string | undefined, sessionId: string | null) => {
     const response = await api.post('/chat/cbt', {
       message: message ?? '',
-      user_id: userId,
       session_id: sessionId,
       mode: 'cbt',
     });
@@ -169,18 +167,18 @@ export const chatAPI = {
   },
   
   // Survey-specific functions
-  startSurvey: async (userId: number, sessionId: string | null) => {
-    return await chatAPI.sendCheckInMessage(undefined, userId, sessionId, 'survey');
+  startSurvey: async (sessionId: string | null) => {
+    return await chatAPI.sendCheckInMessage(undefined, sessionId, 'survey');
   },
   
-  selectQuestionnaire: async (questionnaireId: string, userId: number, sessionId: string | null) => {
+  selectQuestionnaire: async (questionnaireId: string, sessionId: string | null) => {
     const message = `select_questionnaire:${questionnaireId}`;
-    return await chatAPI.sendCheckInMessage(message, userId, sessionId, 'survey');
+    return await chatAPI.sendCheckInMessage(message, sessionId, 'survey');
   },
   
-  answerSurveyQuestion: async (questionnaireId: string, questionIndex: number, answerScore: number, userId: number, sessionId: string | null) => {
+  answerSurveyQuestion: async (questionnaireId: string, questionIndex: number, answerScore: number, sessionId: string | null) => {
     const message = `answer:${questionnaireId}|${questionIndex}|${answerScore}`;
-    return await chatAPI.sendCheckInMessage(message, userId, sessionId, 'survey');
+    return await chatAPI.sendCheckInMessage(message, sessionId, 'survey');
   },
 };
 
