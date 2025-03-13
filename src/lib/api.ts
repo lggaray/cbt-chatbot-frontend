@@ -27,9 +27,12 @@ export interface NotificationPreferences {
   cbt_session_reminders: boolean;
 }
 
+// Use environment variable for API URL with fallback to localhost for development
+const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000';
+
 // Create an Axios instance with default config
 const api = axios.create({
-  baseURL: 'http://localhost:8000',
+  baseURL: API_BASE_URL,
   headers: {
     'Content-Type': 'application/json',
   },
@@ -54,7 +57,7 @@ api.interceptors.response.use(
     const originalRequest = error.config;
     
     // If the error is 401 and we haven't already tried to refresh the token
-    if (error.response.status === 401 && !originalRequest._retry) {
+    if (error.response?.status === 401 && !originalRequest._retry) {
       originalRequest._retry = true;
       
       try {
@@ -65,8 +68,8 @@ api.interceptors.response.use(
           return Promise.reject(error);
         }
         
-        // Try to refresh the token
-        const response = await axios.post('http://localhost:8000/auth/refresh', {
+        // Try to refresh the token using our configured api instance
+        const response = await api.post('/auth/refresh', {
           refresh_token: refreshToken,
         });
         
@@ -106,7 +109,8 @@ export const authAPI = {
     formData.append('username', email);
     formData.append('password', password);
     
-    const response = await axios.post('http://localhost:8000/auth/token', formData, {
+    // Use our configured api instance instead of raw axios
+    const response = await api.post('/auth/token', formData, {
       headers: {
         'Content-Type': 'application/x-www-form-urlencoded',
       },
