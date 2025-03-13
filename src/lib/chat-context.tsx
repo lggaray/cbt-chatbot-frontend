@@ -1,6 +1,6 @@
 'use client';
 
-import React, { createContext, useContext, useState, useEffect, ReactNode, useCallback } from 'react';
+import React, { createContext, useContext, useState, useEffect, ReactNode, useCallback, useRef } from 'react';
 import { chatAPI } from './api';
 import { useAuth } from './auth-context';
 
@@ -181,9 +181,16 @@ export const ChatProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
   }, []);
   
   // Register the clearChatState function with AuthContext
+  // We use a ref to track if we've already registered the function
+  const hasRegisteredClearChatState = useRef(false);
+  
   useEffect(() => {
-    setClearChatState(clearChatState);
-  }, [clearChatState, setClearChatState]);
+    // Only register once to prevent infinite loops
+    if (!hasRegisteredClearChatState.current && setClearChatState) {
+      setClearChatState(clearChatState);
+      hasRegisteredClearChatState.current = true;
+    }
+  }, [setClearChatState, clearChatState]);
   
   // Start a new check-in session
   const startNewCheckIn = async () => {
@@ -344,6 +351,7 @@ export const ChatProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     setCbtNextSteps([]);
     
     try {
+      // Always pass null as session_id to create a new session
       const response = await chatAPI.sendCBTMessage(undefined, user.id, null);
       
       const botMessage: Message = {
@@ -377,6 +385,7 @@ export const ChatProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     setCbtLoading(true);
     
     try {
+      // First try to resume with the existing session ID
       const response = await chatAPI.sendCBTMessage(undefined, user.id, cbtSessionId);
       
       const botMessage: Message = {
@@ -399,7 +408,9 @@ export const ChatProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
       }
     } catch (error) {
       console.error('Error resuming CBT session:', error);
-      // If we can't resume, start a new session
+      // If we can't resume, clear the session ID and start a new session
+      localStorage.removeItem('cbtSessionId');
+      setCbtSessionId(null);
       startNewCBT();
     } finally {
       setCbtLoading(false);
@@ -422,27 +433,57 @@ export const ChatProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     setCbtNextSteps([]);
     
     try {
-      const response = await chatAPI.sendCBTMessage(message, user.id, cbtSessionId);
-      
-      const botMessage: Message = {
-        id: `bot-${Date.now()}`,
-        content: response.response,
-        sender: 'bot',
-        timestamp: new Date(),
-      };
-      
-      setCbtMessages((prev) => [...prev, botMessage]);
-      setCbtSessionId(response.session_id);
-      
-      if (response.next_steps && response.next_steps.length > 0) {
-        setCbtNextSteps(response.next_steps.map((step: string, index: number) => ({
-          id: `step-${index}`,
-          label: step,
-          action: `Start ${step}`
-        })));
+      // If we don't have a session ID, create a new one
+      if (!cbtSessionId) {
+        await startNewCBT();
+        // After creating a new session, send the message
+        const newResponse = await chatAPI.sendCBTMessage(message, user.id, cbtSessionId);
+        
+        const botMessage: Message = {
+          id: `bot-${Date.now()}`,
+          content: newResponse.response,
+          sender: 'bot',
+          timestamp: new Date(),
+        };
+        
+        setCbtMessages((prev) => [...prev, botMessage]);
+        
+        if (newResponse.next_steps && newResponse.next_steps.length > 0) {
+          setCbtNextSteps(newResponse.next_steps.map((step: string, index: number) => ({
+            id: `step-${index}`,
+            label: step,
+            action: `Start ${step}`
+          })));
+        }
+      } else {
+        // Use existing session
+        const response = await chatAPI.sendCBTMessage(message, user.id, cbtSessionId);
+        
+        const botMessage: Message = {
+          id: `bot-${Date.now()}`,
+          content: response.response,
+          sender: 'bot',
+          timestamp: new Date(),
+        };
+        
+        setCbtMessages((prev) => [...prev, botMessage]);
+        setCbtSessionId(response.session_id);
+        
+        if (response.next_steps && response.next_steps.length > 0) {
+          setCbtNextSteps(response.next_steps.map((step: string, index: number) => ({
+            id: `step-${index}`,
+            label: step,
+            action: `Start ${step}`
+          })));
+        }
       }
-    } catch (error) {
+    } catch (error: any) {
       console.error('Error sending CBT message:', error);
+      // If we get an error, try to start a new session
+      if (error.response && error.response.status === 500) {
+        console.log('Session error detected, starting new session...');
+        await startNewCBT();
+      }
     } finally {
       setCbtLoading(false);
     }

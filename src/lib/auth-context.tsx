@@ -1,6 +1,6 @@
 'use client';
 
-import React, { createContext, useContext, useState, useEffect, ReactNode, useCallback } from 'react';
+import React, { createContext, useContext, useState, useEffect, ReactNode, useCallback, useRef } from 'react';
 import { authAPI, userAPI } from './api';
 import { useRouter } from 'next/navigation';
 import { UserRegistrationData } from './api'; // Import the interface
@@ -47,28 +47,35 @@ const AuthContext = createContext<AuthContextType>({
 export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
   const [user, setUser] = useState<User | null>(null);
   const [isLoading, setIsLoading] = useState(true);
-  const [clearChatState, setClearChatStateFn] = useState<(() => void) | undefined>(undefined);
-  const [inactivityTimer, setInactivityTimer] = useState<NodeJS.Timeout | null>(null);
+  // Use a ref instead of state for clearChatState to avoid re-renders
+  const clearChatStateRef = useRef<(() => void) | undefined>(undefined);
+  const inactivityTimerRef = useRef<NodeJS.Timeout | null>(null);
   const router = useRouter();
+
+  // Function to set the clearChatState ref
+  const setClearChatState = useCallback((fn: () => void) => {
+    clearChatStateRef.current = fn;
+  }, []);
 
   // Function to reset the inactivity timer
   const resetInactivityTimer = useCallback(() => {
     // Clear existing timer
-    if (inactivityTimer) {
-      clearTimeout(inactivityTimer);
+    if (inactivityTimerRef.current) {
+      clearTimeout(inactivityTimerRef.current);
+      inactivityTimerRef.current = null;
     }
 
     // Set new timer - log out after 30 minutes of inactivity
-    const newTimer = setTimeout(() => {
-      // Only log out if user is logged in
-      if (user) {
+    // Only set timer if user is logged in
+    if (user) {
+      inactivityTimerRef.current = setTimeout(() => {
         // We'll call the logout function directly here
         // This avoids the circular dependency
         (async () => {
           try {
             // Clear chat state if function is provided
-            if (clearChatState) {
-              clearChatState();
+            if (clearChatStateRef.current) {
+              clearChatStateRef.current();
             }
             
             await authAPI.logout();
@@ -79,51 +86,44 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
             setUser(null);
             localStorage.removeItem('access_token');
             localStorage.removeItem('refresh_token');
-            
-            // Clear inactivity timer
-            if (inactivityTimer) {
-              clearTimeout(inactivityTimer);
-              setInactivityTimer(null);
-            }
           }
           router.push('/login');
         })();
-      }
-    }, 30 * 60 * 1000); // 30 minutes
-
-    setInactivityTimer(newTimer);
-  }, [inactivityTimer, user, router, clearChatState]);
+      }, 30 * 60 * 1000); // 30 minutes
+    }
+  }, [user, router]);
   
   // Set up activity listeners
   useEffect(() => {
-    if (user) {
-      // Set up event listeners for user activity
-      const events = ['mousedown', 'keypress', 'scroll', 'touchstart'];
-      
-      const handleActivity = () => {
-        resetInactivityTimer();
-      };
-      
-      // Add event listeners
-      events.forEach(event => {
-        window.addEventListener(event, handleActivity);
-      });
-      
-      // Initial timer
+    if (!user) return;
+    
+    // Set up event listeners for user activity
+    const events = ['mousedown', 'keypress', 'scroll', 'touchstart'];
+    
+    const handleActivity = () => {
       resetInactivityTimer();
+    };
+    
+    // Add event listeners
+    events.forEach(event => {
+      window.addEventListener(event, handleActivity);
+    });
+    
+    // Initial timer setup
+    resetInactivityTimer();
+    
+    // Cleanup
+    return () => {
+      if (inactivityTimerRef.current) {
+        clearTimeout(inactivityTimerRef.current);
+        inactivityTimerRef.current = null;
+      }
       
-      // Cleanup
-      return () => {
-        if (inactivityTimer) {
-          clearTimeout(inactivityTimer);
-        }
-        
-        events.forEach(event => {
-          window.removeEventListener(event, handleActivity);
-        });
-      };
-    }
-  }, [user, inactivityTimer, resetInactivityTimer]);
+      events.forEach(event => {
+        window.removeEventListener(event, handleActivity);
+      });
+    };
+  }, [user, resetInactivityTimer]);
 
   // Check if user is authenticated on mount
   useEffect(() => {
@@ -138,7 +138,6 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
       try {
         const userData = await userAPI.getCurrentUser();
         setUser(userData);
-        resetInactivityTimer();
       } catch (_) {
         // Token is invalid or expired
         localStorage.removeItem('access_token');
@@ -149,7 +148,7 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     };
     
     checkAuth();
-  }, [resetInactivityTimer]);
+  }, []);
 
   // Login function
   const login = async (email: string, password: string) => {
@@ -162,7 +161,6 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
       
       const userData = await userAPI.getCurrentUser();
       setUser(userData);
-      resetInactivityTimer();
       router.push('/home');
     } finally {
       setIsLoading(false);
@@ -175,8 +173,8 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     
     try {
       // Clear chat state if function is provided
-      if (clearChatState) {
-        clearChatState();
+      if (clearChatStateRef.current) {
+        clearChatStateRef.current();
       }
       
       await authAPI.logout();
@@ -190,9 +188,9 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
       setIsLoading(false);
       
       // Clear inactivity timer
-      if (inactivityTimer) {
-        clearTimeout(inactivityTimer);
-        setInactivityTimer(null);
+      if (inactivityTimerRef.current) {
+        clearTimeout(inactivityTimerRef.current);
+        inactivityTimerRef.current = null;
       }
     }
   };
@@ -205,7 +203,6 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
       const newUser = await authAPI.register(userData);
       await authAPI.login(userData.email, userData.password);
       setUser(newUser);
-      resetInactivityTimer();
       router.push('/home');
     } finally {
       setIsLoading(false);
@@ -220,8 +217,9 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     logout,
     register,
     resetInactivityTimer,
-    clearChatState,
-    setClearChatState: setClearChatStateFn
+    // Use the current value of the ref for the context value
+    clearChatState: clearChatStateRef.current,
+    setClearChatState
   };
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
