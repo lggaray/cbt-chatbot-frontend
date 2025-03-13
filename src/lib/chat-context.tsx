@@ -4,14 +4,20 @@ import React, { createContext, useContext, useState, useEffect, ReactNode, useCa
 import { chatAPI } from './api';
 import { useAuth } from './auth-context';
 
-// Define types
-export interface Message {
+// Define interfaces for type safety
+interface SurveyAnswer {
+  score: number | string;
+  text: string;
+}
+
+interface Message {
   id: string;
   content: string;
   sender: 'user' | 'bot';
   timestamp: Date;
 }
 
+// Define types
 export interface NextStep {
   id: string;
   label: string;
@@ -30,11 +36,6 @@ export interface SurveyQuestion {
   question_id: string;
   index: number;
   total: number;
-}
-
-export interface SurveyAnswer {
-  score: number;
-  text: string;
 }
 
 export interface SurveyResult {
@@ -84,7 +85,7 @@ export interface ChatContextType {
   // Survey actions
   startSurvey: () => Promise<void>;
   selectQuestionnaire: (questionnaireId: string) => Promise<void>;
-  answerSurveyQuestion: (answerScore: number) => Promise<void>;
+  answerSurveyQuestion: (answerScore: number | string) => Promise<void>;
   closeSurvey: () => void;
   
   clearChatState: () => void;
@@ -522,7 +523,7 @@ export const ChatProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
       // Ensure possible_answers is properly formatted
       if (response.possible_answers && Array.isArray(response.possible_answers)) {
         // Map the possible_answers to the expected format if needed
-        const formattedAnswers = response.possible_answers.map((answer: any) => ({
+        const formattedAnswers = response.possible_answers.map((answer: SurveyAnswer) => ({
           score: typeof answer.score === 'number' ? answer.score : parseInt(answer.score as string, 10),
           text: answer.text
         }));
@@ -540,7 +541,7 @@ export const ChatProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     }
   };
   
-  const answerSurveyQuestion = async (answerScore: number) => {
+  const answerSurveyQuestion = async (answerScore: number | string) => {
     if (!user || checkInLoading || !checkInSessionId || !currentQuestionnaireId || !currentQuestionIndex) return;
     
     setCheckInLoading(true);
@@ -549,7 +550,7 @@ export const ChatProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
       const response = await chatAPI.answerSurveyQuestion(
         currentQuestionnaireId,
         currentQuestionIndex,
-        answerScore,
+        typeof answerScore === 'string' ? parseInt(answerScore, 10) : answerScore,
         user.id,
         checkInSessionId
       );
@@ -568,7 +569,7 @@ export const ChatProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
         // Ensure possible_answers is properly formatted
         if (response.possible_answers && Array.isArray(response.possible_answers)) {
           // Map the possible_answers to the expected format if needed
-          const formattedAnswers = response.possible_answers.map((answer: any) => ({
+          const formattedAnswers = response.possible_answers.map((answer: SurveyAnswer) => ({
             score: typeof answer.score === 'number' ? answer.score : parseInt(answer.score as string, 10),
             text: answer.text
           }));

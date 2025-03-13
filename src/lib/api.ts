@@ -2,6 +2,31 @@
 
 import axios from 'axios';
 
+// Define interfaces to replace any types
+export interface UserRegistrationData {
+  name: string;
+  email: string;
+  password: string;
+  age?: number;
+  gender?: string;
+  check_in_frequency?: number;
+}
+
+export interface UserProfileUpdateData {
+  name?: string;
+  email?: string;
+  age?: number;
+  gender?: string;
+  check_in_frequency?: number;
+}
+
+export interface NotificationPreferences {
+  email_notifications: boolean;
+  push_notifications: boolean;
+  check_in_reminders: boolean;
+  cbt_session_reminders: boolean;
+}
+
 // Create an Axios instance with default config
 const api = axios.create({
   baseURL: 'http://localhost:8000',
@@ -71,7 +96,7 @@ api.interceptors.response.use(
 
 // Authentication API
 export const authAPI = {
-  register: async (userData: any) => {
+  register: async (userData: UserRegistrationData) => {
     const response = await api.post('/auth/register', userData);
     return response.data;
   },
@@ -162,7 +187,7 @@ export const userAPI = {
     return response.data;
   },
   
-  updateProfile: async (userData: any) => {
+  updateProfile: async (userData: UserProfileUpdateData) => {
     const response = await api.put('/users/me', userData);
     return response.data;
   },
@@ -174,7 +199,7 @@ export const userAPI = {
   },
   
   // New method for updating user notification preferences
-  updateNotificationPreferences: async (preferences: any) => {
+  updateNotificationPreferences: async (preferences: NotificationPreferences) => {
     const response = await api.put('/users/notification-preferences', preferences);
     return response.data;
   },

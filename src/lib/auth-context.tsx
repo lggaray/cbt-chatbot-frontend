@@ -1,8 +1,9 @@
 'use client';
 
-import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
+import React, { createContext, useContext, useState, useEffect, ReactNode, useCallback } from 'react';
 import { authAPI, userAPI } from './api';
 import { useRouter } from 'next/navigation';
+import { UserRegistrationData } from './api'; // Import the interface
 
 // Define types
 interface User {
@@ -23,74 +24,106 @@ interface AuthContextType {
   isAuthenticated: boolean;
   login: (email: string, password: string) => Promise<void>;
   logout: () => Promise<void>;
-  register: (userData: any) => Promise<void>;
+  register: (userData: UserRegistrationData) => Promise<void>;
   resetInactivityTimer: () => void;
   clearChatState?: () => void; // Optional function to clear chat state
   setClearChatState: (fn: () => void) => void; // Function to set the clearChatState function
 }
 
 // Create the context
-const AuthContext = createContext<AuthContextType | undefined>(undefined);
-
-// Inactivity timeout in milliseconds (30 minutes)
-const INACTIVITY_TIMEOUT = 30 * 60 * 1000;
+const AuthContext = createContext<AuthContextType>({
+  user: null,
+  isLoading: true,
+  isAuthenticated: false,
+  login: async () => {},
+  logout: async () => {},
+  register: async () => {},
+  resetInactivityTimer: () => {},
+  clearChatState: undefined,
+  setClearChatState: () => {}
+});
 
 // Create a provider component
 export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
   const [user, setUser] = useState<User | null>(null);
   const [isLoading, setIsLoading] = useState(true);
+  const [clearChatState, setClearChatStateFn] = useState<(() => void) | undefined>(undefined);
   const [inactivityTimer, setInactivityTimer] = useState<NodeJS.Timeout | null>(null);
-  const [clearChatState, setClearChatState] = useState<(() => void) | undefined>(undefined);
   const router = useRouter();
 
   // Function to reset the inactivity timer
-  const resetInactivityTimer = () => {
-    // Clear any existing timer
+  const resetInactivityTimer = useCallback(() => {
+    // Clear existing timer
     if (inactivityTimer) {
       clearTimeout(inactivityTimer);
     }
-    
-    // Only set a new timer if the user is authenticated
-    if (user) {
-      const timer = setTimeout(() => {
-        console.log('User inactive for 30 minutes, logging out');
-        logout();
-      }, INACTIVITY_TIMEOUT);
-      
-      setInactivityTimer(timer);
-    }
-  };
+
+    // Set new timer - log out after 30 minutes of inactivity
+    const newTimer = setTimeout(() => {
+      // Only log out if user is logged in
+      if (user) {
+        // We'll call the logout function directly here
+        // This avoids the circular dependency
+        (async () => {
+          try {
+            // Clear chat state if function is provided
+            if (clearChatState) {
+              clearChatState();
+            }
+            
+            await authAPI.logout();
+          } catch (_) {
+            // Ignore errors during logout
+          } finally {
+            // Clear user data and tokens regardless of API success
+            setUser(null);
+            localStorage.removeItem('access_token');
+            localStorage.removeItem('refresh_token');
+            
+            // Clear inactivity timer
+            if (inactivityTimer) {
+              clearTimeout(inactivityTimer);
+              setInactivityTimer(null);
+            }
+          }
+          router.push('/login');
+        })();
+      }
+    }, 30 * 60 * 1000); // 30 minutes
+
+    setInactivityTimer(newTimer);
+  }, [inactivityTimer, user, router, clearChatState]);
   
-  // Set up event listeners for user activity
+  // Set up activity listeners
   useEffect(() => {
     if (user) {
-      // Reset the timer when the user is active
+      // Set up event listeners for user activity
+      const events = ['mousedown', 'keypress', 'scroll', 'touchstart'];
+      
       const handleActivity = () => {
         resetInactivityTimer();
       };
       
-      // Add event listeners for user activity
-      window.addEventListener('mousemove', handleActivity);
-      window.addEventListener('keypress', handleActivity);
-      window.addEventListener('click', handleActivity);
-      window.addEventListener('scroll', handleActivity);
+      // Add event listeners
+      events.forEach(event => {
+        window.addEventListener(event, handleActivity);
+      });
       
-      // Initial timer setup
+      // Initial timer
       resetInactivityTimer();
       
-      // Clean up event listeners on unmount
+      // Cleanup
       return () => {
-        window.removeEventListener('mousemove', handleActivity);
-        window.removeEventListener('keypress', handleActivity);
-        window.removeEventListener('click', handleActivity);
-        window.removeEventListener('scroll', handleActivity);
-        
         if (inactivityTimer) {
           clearTimeout(inactivityTimer);
         }
+        
+        events.forEach(event => {
+          window.removeEventListener(event, handleActivity);
+        });
       };
     }
-  }, [user]);
+  }, [user, inactivityTimer, resetInactivityTimer]);
 
   // Check if user is authenticated on mount
   useEffect(() => {
@@ -106,7 +139,7 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
         const userData = await userAPI.getCurrentUser();
         setUser(userData);
         resetInactivityTimer();
-      } catch (error) {
+      } catch (_) {
         // Token is invalid or expired
         localStorage.removeItem('access_token');
         localStorage.removeItem('refresh_token');
@@ -116,14 +149,17 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     };
     
     checkAuth();
-  }, []);
+  }, [resetInactivityTimer]);
 
   // Login function
   const login = async (email: string, password: string) => {
     setIsLoading(true);
     
     try {
-      await authAPI.login(email, password);
+      const response = await authAPI.login(email, password);
+      localStorage.setItem('access_token', response.access_token);
+      localStorage.setItem('refresh_token', response.refresh_token);
+      
       const userData = await userAPI.getCurrentUser();
       setUser(userData);
       resetInactivityTimer();
@@ -138,28 +174,31 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     setIsLoading(true);
     
     try {
-      await authAPI.logout();
-      setUser(null);
-      
-      // Clear the inactivity timer
-      if (inactivityTimer) {
-        clearTimeout(inactivityTimer);
-        setInactivityTimer(null);
-      }
-      
-      // Clear chat state if the function is available
+      // Clear chat state if function is provided
       if (clearChatState) {
         clearChatState();
       }
       
-      router.push('/');
+      await authAPI.logout();
+    } catch (_) {
+      // Ignore errors during logout
     } finally {
+      // Clear user data and tokens regardless of API success
+      setUser(null);
+      localStorage.removeItem('access_token');
+      localStorage.removeItem('refresh_token');
       setIsLoading(false);
+      
+      // Clear inactivity timer
+      if (inactivityTimer) {
+        clearTimeout(inactivityTimer);
+        setInactivityTimer(null);
+      }
     }
   };
 
   // Register function
-  const register = async (userData: any) => {
+  const register = async (userData: UserRegistrationData) => {
     setIsLoading(true);
     
     try {
@@ -182,7 +221,7 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     register,
     resetInactivityTimer,
     clearChatState,
-    setClearChatState,
+    setClearChatState: setClearChatStateFn
   };
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
@@ -209,7 +248,7 @@ export const withAuth = (Component: React.ComponentType) => {
       if (!isLoading && !isAuthenticated) {
         router.push('/login');
       }
-    }, [isAuthenticated, isLoading, router]);
+    }, [isLoading, isAuthenticated, router]);
     
     if (isLoading) {
       return <div>Loading...</div>;

@@ -26,9 +26,14 @@ export default function LoginPage() {
     try {
       await login(email, password);
       toast.success('Login successful!');
-    } catch (err: any) {
+    } catch (err: unknown) {
       console.error('Login error:', err);
-      setError(err.response?.data?.detail || 'Invalid email or password');
+      if (err && typeof err === 'object' && 'response' in err) {
+        const errorObj = err as { response?: { data?: { detail?: string } } };
+        setError(errorObj.response?.data?.detail || 'Invalid email or password');
+      } else {
+        setError('Invalid email or password');
+      }
       toast.error('Login failed. Please check your credentials.');
     }
   };

@@ -129,7 +129,7 @@ export default function CheckInPage() {
     await selectQuestionnaire(questionnaireId);
   };
 
-  const handleAnswerQuestion = async (answerScore: number) => {
+  const handleAnswerQuestion = async (answerScore: number | string) => {
     handleUserInteraction();
     await answerSurveyQuestion(answerScore);
   };

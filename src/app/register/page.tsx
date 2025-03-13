@@ -7,6 +7,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
 import { toast } from 'sonner';
+import { UserRegistrationData } from '@/lib/api'; // Import the interface
 
 // Define the steps in the onboarding process
 const STEPS = {
@@ -57,17 +58,28 @@ export default function RegisterPage() {
     }
 
     try {
-      // Convert age to number if provided
-      const userData = {
-        ...formData,
-        age: formData.age ? parseInt(formData.age, 10) : null,
+      // Convert age to number if provided and create a properly typed userData object
+      const userData: UserRegistrationData = {
+        name: formData.name,
+        email: formData.email,
+        password: formData.password,
+        gender: formData.gender || undefined,
+        check_in_frequency: formData.check_in_frequency,
+        // Convert age to number if provided, otherwise undefined (not null)
+        age: formData.age ? parseInt(formData.age, 10) : undefined,
       };
 
       await register(userData);
       toast.success('Registration successful!');
-    } catch (err: any) {
+    } catch (err: unknown) {
       console.error('Registration error:', err);
-      setError(err.response?.data?.detail || 'Registration failed. Please try again.');
+      // Type guard to check if err is an Error or has response property
+      if (err && typeof err === 'object' && 'response' in err) {
+        const errorObj = err as { response?: { data?: { detail?: string } } };
+        setError(errorObj.response?.data?.detail || 'Registration failed. Please try again.');
+      } else {
+        setError('Registration failed. Please try again.');
+      }
       toast.error('Registration failed. Please try again.');
     }
   };
