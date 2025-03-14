@@ -30,6 +30,9 @@ export interface NotificationPreferences {
 // Use environment variable for API URL with fallback to localhost for development
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000';
 
+// Log the API URL for debugging
+console.log('API Base URL:', API_BASE_URL);
+
 // Create an Axios instance with default config
 const api = axios.create({
   baseURL: API_BASE_URL,
