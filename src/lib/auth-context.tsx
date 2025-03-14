@@ -155,13 +155,30 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     setIsLoading(true);
     
     try {
+      console.log('Auth context: Attempting login for', email);
       const response = await authAPI.login(email, password);
+      console.log('Auth context: Login successful, received tokens');
+      
+      // Store tokens in localStorage
       localStorage.setItem('access_token', response.access_token);
       localStorage.setItem('refresh_token', response.refresh_token);
       
-      const userData = await userAPI.getCurrentUser();
-      setUser(userData);
-      router.push('/home');
+      try {
+        console.log('Auth context: Fetching user data');
+        const userData = await userAPI.getCurrentUser();
+        console.log('Auth context: User data fetched successfully');
+        setUser(userData);
+        router.push('/home');
+      } catch (error) {
+        console.error('Auth context: Error fetching user data after login', error);
+        // Clear tokens if user data fetch fails
+        localStorage.removeItem('access_token');
+        localStorage.removeItem('refresh_token');
+        throw new Error('Failed to fetch user data after login');
+      }
+    } catch (error) {
+      console.error('Auth context: Login failed', error);
+      throw error; // Re-throw to be handled by the login page
     } finally {
       setIsLoading(false);
     }

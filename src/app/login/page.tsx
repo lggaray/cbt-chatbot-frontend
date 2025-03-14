@@ -24,16 +24,47 @@ export default function LoginPage() {
     }
 
     try {
+      console.log('Attempting login with:', { email });
       await login(email, password);
       toast.success('Login successful!');
     } catch (err: unknown) {
       console.error('Login error:', err);
+      
+      // More detailed error handling
       if (err && typeof err === 'object' && 'response' in err) {
-        const errorObj = err as { response?: { data?: { detail?: string } } };
-        setError(errorObj.response?.data?.detail || 'Invalid email or password');
+        const errorObj = err as { 
+          response?: { 
+            status?: number,
+            data?: { detail?: string },
+            statusText?: string
+          },
+          message?: string
+        };
+        
+        const status = errorObj.response?.status;
+        const detail = errorObj.response?.data?.detail;
+        const statusText = errorObj.response?.statusText;
+        const message = errorObj.message;
+        
+        console.error('Error details:', { status, detail, statusText, message });
+        
+        if (status === 401) {
+          setError('Invalid email or password');
+        } else if (detail) {
+          setError(detail);
+        } else if (statusText) {
+          setError(`Error: ${statusText}`);
+        } else if (message) {
+          setError(`Error: ${message}`);
+        } else {
+          setError('An error occurred during login. Please try again.');
+        }
+      } else if (err instanceof Error) {
+        setError(`Error: ${err.message}`);
       } else {
-        setError('Invalid email or password');
+        setError('An unexpected error occurred. Please try again.');
       }
+      
       toast.error('Login failed. Please check your credentials.');
     }
   };

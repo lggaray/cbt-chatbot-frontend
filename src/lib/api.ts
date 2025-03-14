@@ -30,13 +30,16 @@ export interface NotificationPreferences {
 // Use environment variable for API URL with fallback to localhost for development
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000';
 
+// Log the API URL for debugging
+console.log('API Base URL:', API_BASE_URL);
+
 // Create an Axios instance with default config
 const api = axios.create({
   baseURL: API_BASE_URL,
   headers: {
     'Content-Type': 'application/json',
   },
-  withCredentials: true,
+  withCredentials: false, // Changed to false to avoid CORS preflight issues
   timeout: 10000,
 });
 
@@ -46,35 +49,50 @@ api.interceptors.request.use(
     const token = localStorage.getItem('access_token');
     if (token) {
       config.headers.Authorization = `Bearer ${token}`;
+      console.log(`API Request: ${config.method?.toUpperCase()} ${config.url} with auth token`);
+    } else {
+      console.log(`API Request: ${config.method?.toUpperCase()} ${config.url} without auth token`);
     }
     return config;
   },
-  (error) => Promise.reject(error)
+  (error) => {
+    console.error('API Request Error:', error);
+    return Promise.reject(error);
+  }
 );
 
 // Add a response interceptor to handle token refresh
 api.interceptors.response.use(
-  (response) => response,
+  (response) => {
+    console.log(`API Response: ${response.status} ${response.config.method?.toUpperCase()} ${response.config.url}`);
+    return response;
+  },
   async (error) => {
+    console.error('API Response Error:', error.response?.status, error.config?.url, error.message);
+    
     const originalRequest = error.config;
     
     // If the error is 401 and we haven't already tried to refresh the token
     if (error.response?.status === 401 && !originalRequest._retry) {
+      console.log('Token expired, attempting to refresh...');
       originalRequest._retry = true;
       
       try {
         const refreshToken = localStorage.getItem('refresh_token');
         if (!refreshToken) {
+          console.error('No refresh token available');
           // No refresh token available, redirect to login
           window.location.href = '/login';
           return Promise.reject(error);
         }
         
+        console.log('Attempting to refresh token');
         // Try to refresh the token using our configured api instance
         const response = await api.post('/auth/refresh', {
           refresh_token: refreshToken,
         });
         
+        console.log('Token refresh successful');
         const { access_token, refresh_token } = response.data;
         
         // Store the new tokens
@@ -84,9 +102,11 @@ api.interceptors.response.use(
         // Update the authorization header
         originalRequest.headers.Authorization = `Bearer ${access_token}`;
         
+        console.log('Retrying original request');
         // Retry the original request
         return api(originalRequest);
       } catch (refreshError) {
+        console.error('Token refresh failed:', refreshError);
         // If refresh fails, redirect to login
         localStorage.removeItem('access_token');
         localStorage.removeItem('refresh_token');
@@ -102,36 +122,54 @@ api.interceptors.response.use(
 // Authentication API
 export const authAPI = {
   register: async (userData: UserRegistrationData) => {
+    console.log('API: Registering user', userData.email);
     const response = await api.post('/auth/register', userData);
+    console.log('API: Registration successful');
     return response.data;
   },
   
   login: async (email: string, password: string) => {
+    console.log('API: Attempting login for', email);
+    
     const formData = new URLSearchParams();
     formData.append('username', email);
     formData.append('password', password);
     
-    // Use our configured api instance instead of raw axios
-    const response = await api.post('/auth/token', formData, {
-      headers: {
-        'Content-Type': 'application/x-www-form-urlencoded',
-      },
-    });
-    
-    const { access_token, refresh_token } = response.data;
-    
-    // Store tokens in localStorage
-    localStorage.setItem('access_token', access_token);
-    localStorage.setItem('refresh_token', refresh_token);
-    
-    return response.data;
+    try {
+      // Use our configured api instance instead of raw axios
+      const response = await api.post('/auth/token', formData, {
+        headers: {
+          'Content-Type': 'application/x-www-form-urlencoded',
+        },
+      });
+      
+      console.log('API: Login successful, received tokens');
+      const { access_token, refresh_token } = response.data;
+      
+      // Store tokens in localStorage
+      localStorage.setItem('access_token', access_token);
+      localStorage.setItem('refresh_token', refresh_token);
+      
+      return response.data;
+    } catch (error) {
+      console.error('API: Login failed', error);
+      throw error;
+    }
   },
   
   logout: async () => {
+    console.log('API: Attempting logout');
     const refreshToken = localStorage.getItem('refresh_token');
     
     try {
-      await api.post('/auth/logout', { refresh_token: refreshToken });
+      if (refreshToken) {
+        await api.post('/auth/logout', { refresh_token: refreshToken });
+        console.log('API: Logout successful');
+      } else {
+        console.log('API: No refresh token found, skipping server logout');
+      }
+    } catch (error) {
+      console.error('API: Logout failed', error);
     } finally {
       // Clear tokens regardless of API response
       localStorage.removeItem('access_token');
@@ -187,14 +225,27 @@ export const chatAPI = {
 // User API
 export const userAPI = {
   getCurrentUser: async () => {
-    const response = await api.get('/users/me');
-    console.log(response.data);
-    return response.data;
+    console.log('API: Fetching current user data');
+    try {
+      const response = await api.get('/users/me');
+      console.log('API: User data fetched successfully', response.data);
+      return response.data;
+    } catch (error) {
+      console.error('API: Failed to fetch user data', error);
+      throw error;
+    }
   },
   
   updateProfile: async (userData: UserProfileUpdateData) => {
-    const response = await api.put('/users/me', userData);
-    return response.data;
+    console.log('API: Updating user profile', userData);
+    try {
+      const response = await api.put('/users/me', userData);
+      console.log('API: Profile updated successfully', response.data);
+      return response.data;
+    } catch (error) {
+      console.error('API: Failed to update profile', error);
+      throw error;
+    }
   },
   
   // New method for user notification preferences
