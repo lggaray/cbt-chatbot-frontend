@@ -30,9 +30,6 @@ export interface NotificationPreferences {
 // Use environment variable for API URL with fallback to localhost for development
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000';
 
-// Log the API URL for debugging
-console.log('API Base URL:', API_BASE_URL);
-
 // Create an Axios instance with default config
 const api = axios.create({
   baseURL: API_BASE_URL,
@@ -67,12 +64,14 @@ api.interceptors.response.use(
         const refreshToken = localStorage.getItem('refresh_token');
         if (!refreshToken) {
           // No refresh token available, redirect to login
+          localStorage.removeItem('access_token');
+          localStorage.removeItem('refresh_token');
           window.location.href = '/login';
           return Promise.reject(error);
         }
         
         // Try to refresh the token using our configured api instance
-        const response = await api.post('/auth/refresh', {
+        const response = await axios.post(`${API_BASE_URL}/auth/refresh`, {
           refresh_token: refreshToken,
         });
         
@@ -86,7 +85,7 @@ api.interceptors.response.use(
         originalRequest.headers.Authorization = `Bearer ${access_token}`;
         
         // Retry the original request
-        return api(originalRequest);
+        return axios(originalRequest);
       } catch (refreshError) {
         // If refresh fails, redirect to login
         localStorage.removeItem('access_token');
@@ -126,6 +125,18 @@ export const authAPI = {
     localStorage.setItem('refresh_token', refresh_token);
     
     return response.data;
+  },
+  
+  refreshToken: async (refreshToken: string) => {
+    try {
+      const response = await api.post('/auth/refresh', {
+        refresh_token: refreshToken,
+      });
+      return response.data;
+    } catch (error) {
+      // If refresh fails, return null
+      return null;
+    }
   },
   
   logout: async () => {
