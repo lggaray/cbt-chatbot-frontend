@@ -136,33 +136,9 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
       }
       
       try {
-        // First, try to refresh the token to ensure we have a valid one
-        const refreshToken = localStorage.getItem('refresh_token');
-        if (refreshToken) {
-          try {
-            const refreshResponse = await authAPI.refreshToken(refreshToken);
-            if (refreshResponse) {
-              localStorage.setItem('access_token', refreshResponse.access_token);
-              localStorage.setItem('refresh_token', refreshResponse.refresh_token);
-            }
-          } catch (refreshError) {
-            // If refresh fails, continue with the current token
-            // We'll handle authentication errors in the getCurrentUser call
-          }
-        }
-        
-        // Now try to get the current user with the token
         const userData = await userAPI.getCurrentUser();
-        
-        // Ensure we have valid user data before setting it
-        if (userData && userData.id) {
-          setUser(userData);
-        } else {
-          // If we got a response but no valid user data, clear tokens
-          localStorage.removeItem('access_token');
-          localStorage.removeItem('refresh_token');
-        }
-      } catch (error) {
+        setUser(userData);
+      } catch (_) {
         // Token is invalid or expired
         localStorage.removeItem('access_token');
         localStorage.removeItem('refresh_token');
@@ -183,20 +159,9 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
       localStorage.setItem('access_token', response.access_token);
       localStorage.setItem('refresh_token', response.refresh_token);
       
-      try {
-        const userData = await userAPI.getCurrentUser();
-        if (userData && userData.id) {
-          setUser(userData);
-          router.push('/home');
-        } else {
-          throw new Error('Invalid user data received');
-        }
-      } catch (userError) {
-        // If we can't get user data, clear tokens and show error
-        localStorage.removeItem('access_token');
-        localStorage.removeItem('refresh_token');
-        throw new Error('Failed to retrieve user data');
-      }
+      const userData = await userAPI.getCurrentUser();
+      setUser(userData);
+      router.push('/home');
     } finally {
       setIsLoading(false);
     }

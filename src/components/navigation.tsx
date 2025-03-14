@@ -140,7 +140,7 @@ export function Navigation() {
                   <DropdownMenu>
                     <DropdownMenuTrigger onClick={() => setIsDropdownOpen(!isDropdownOpen)}>
                       <Button variant="outline" size="sm">
-                        {user && (user.name || user.email?.split('@')[0]) || 'My Account'}
+                        {user?.name || 'Account'}
                       </Button>
                     </DropdownMenuTrigger>
                     <DropdownMenuContent align="end" open={isDropdownOpen}>

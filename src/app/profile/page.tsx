@@ -8,7 +8,6 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
 import { toast } from 'sonner';
-import { authAPI } from '@/lib/api';
 
 // Custom Select component
 const Select = ({ value, onValueChange, children }: { value: string; onValueChange: (value: string) => void; children: React.ReactNode }) => {
@@ -82,29 +81,8 @@ export default function ProfilePage() {
       if (isAuthenticated && user) {
         try {
           setLoading(true);
-          
-          // Try to refresh the token first to ensure we have a valid one
-          const refreshToken = localStorage.getItem('refresh_token');
-          if (refreshToken) {
-            try {
-              const refreshResponse = await authAPI.refreshToken(refreshToken);
-              if (refreshResponse) {
-                localStorage.setItem('access_token', refreshResponse.access_token);
-                localStorage.setItem('refresh_token', refreshResponse.refresh_token);
-              }
-            } catch (refreshError) {
-              // Continue with current token if refresh fails
-            }
-          }
-          
           // Using getCurrentUser instead of getUserProfile
           const data = await userAPI.getCurrentUser();
-          
-          // Validate the data before using it
-          if (!data || !data.id) {
-            throw new Error('Invalid user data received');
-          }
-          
           const profileData: UserProfile = {
             id: data.id || '',
             name: data.name || '',
