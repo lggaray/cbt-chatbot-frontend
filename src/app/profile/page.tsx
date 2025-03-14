@@ -28,6 +28,22 @@ const SelectItem = ({ value, children }: { value: string; children: React.ReactN
   <option value={value}>{children}</option>
 );
 
+// Helper function to convert check-in frequency values to labels
+const getCheckInFrequencyLabel = (frequency: string): string => {
+  switch (frequency) {
+    case '1':
+      return 'Daily';
+    case '7':
+      return 'Weekly';
+    case '14':
+      return 'Bi-weekly';
+    case '30':
+      return 'Monthly';
+    default:
+      return 'Weekly'; // Default to weekly if unknown
+  }
+};
+
 interface UserProfile {
   id: string;
   name: string;
@@ -48,7 +64,7 @@ export default function ProfilePage() {
     name: '',
     gender: '',
     age: '',
-    checkInFrequency: '',
+    checkInFrequency: '7', // Default to weekly
   });
   const router = useRouter();
 
@@ -68,12 +84,12 @@ export default function ProfilePage() {
           // Using getCurrentUser instead of getUserProfile
           const data = await userAPI.getCurrentUser();
           const profileData: UserProfile = {
-            id: data.id,
-            name: data.name,
-            email: data.email,
+            id: data.id || '',
+            name: data.name || '',
+            email: data.email || '',
             gender: data.gender || 'prefer-not-to-say',
             age: data.age || 0,
-            checkInFrequency: data.checkInFrequency || 'weekly',
+            checkInFrequency: data.check_in_frequency ? data.check_in_frequency.toString() : '7',
             joinDate: data.joinDate || new Date().toISOString(),
             completedSessions: data.completedSessions || 0
           };
@@ -81,7 +97,7 @@ export default function ProfilePage() {
           setFormData({
             name: profileData.name,
             gender: profileData.gender,
-            age: profileData.age.toString(),
+            age: profileData.age !== undefined ? profileData.age.toString() : '',
             checkInFrequency: profileData.checkInFrequency,
           });
         } catch (error) {
@@ -110,22 +126,25 @@ export default function ProfilePage() {
 
     try {
       setLoading(true);
-      // Using updateProfile instead of updateUserProfile
-      //const updatedData = await userAPI.updateProfile({
-      //  id: user.id,
-      //  name: formData.name,
-      //  gender: formData.gender,
-      //  age: parseInt(formData.age),
-      //  checkInFrequency: formData.checkInFrequency,
-      //});
+      // Convert age to number and prepare update data
+      const updateData = {
+        name: formData.name,
+        gender: formData.gender,
+        age: formData.age ? parseInt(formData.age) : undefined,
+        check_in_frequency: formData.checkInFrequency ? parseInt(formData.checkInFrequency) : 7 // Default to weekly
+      };
       
-      if (profile) {
+      // Call the API to update the profile
+      const updatedData = await userAPI.updateProfile(updateData);
+      
+      // Update the local profile state with the response data
+      if (updatedData) {
         const updatedProfile: UserProfile = {
-          ...profile,
-          name: formData.name,
-          gender: formData.gender,
-          age: parseInt(formData.age),
-          checkInFrequency: formData.checkInFrequency,
+          ...profile!,
+          name: updatedData.name || '',
+          gender: updatedData.gender || 'prefer-not-to-say',
+          age: updatedData.age || 0,
+          checkInFrequency: updatedData.check_in_frequency ? updatedData.check_in_frequency.toString() : '7',
         };
         setProfile(updatedProfile);
       }
@@ -143,10 +162,10 @@ export default function ProfilePage() {
   const handleCancel = () => {
     if (profile) {
       setFormData({
-        name: profile.name,
-        gender: profile.gender,
-        age: profile.age.toString(),
-        checkInFrequency: profile.checkInFrequency,
+        name: profile.name || '',
+        gender: profile.gender || 'prefer-not-to-say',
+        age: profile.age !== undefined ? profile.age.toString() : '',
+        checkInFrequency: profile.checkInFrequency || '7',
       });
     }
     setEditing(false);
@@ -248,14 +267,14 @@ export default function ProfilePage() {
                           value={formData.checkInFrequency}
                           onValueChange={(value: string) => handleSelectChange('checkInFrequency', value)}
                         >
-                          <SelectItem value="daily">Daily</SelectItem>
-                          <SelectItem value="weekly">Weekly</SelectItem>
-                          <SelectItem value="biweekly">Bi-weekly</SelectItem>
-                          <SelectItem value="monthly">Monthly</SelectItem>
+                          <SelectItem value="1">Daily</SelectItem>
+                          <SelectItem value="7">Weekly</SelectItem>
+                          <SelectItem value="14">Bi-weekly</SelectItem>
+                          <SelectItem value="30">Monthly</SelectItem>
                         </Select>
                       ) : (
                         <p className="text-foreground p-2 border border-border rounded-md">
-                          {profile.checkInFrequency.charAt(0).toUpperCase() + profile.checkInFrequency.slice(1)}
+                          {getCheckInFrequencyLabel(profile.checkInFrequency)}
                         </p>
                       )}
                     </div>
