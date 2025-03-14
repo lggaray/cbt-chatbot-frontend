@@ -531,7 +531,14 @@ export const ChatProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     try {
       const response = await chatAPI.startSurvey(checkInSessionId);
       
-      setCurrentSurveyQuestion(response.response);
+      // Only set currentSurveyQuestion if there are no questionnaire options
+      // This ensures the questionnaire selection screen is shown first
+      if (!response.questionnaire_options) {
+        setCurrentSurveyQuestion(response.response);
+      } else {
+        // Clear the current question to ensure the questionnaire options are displayed
+        setCurrentSurveyQuestion(null);
+      }
       
       if (response.questionnaire_options) {
         setSurveyQuestionnaireOptions(response.questionnaire_options);
@@ -570,8 +577,11 @@ export const ChatProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     try {
       const response = await chatAPI.selectQuestionnaire(questionnaireId, checkInSessionId);
       
+      // For questionnaire selection, we want to display the question text
+      // The backend returns the first question in the response field
       setCurrentSurveyQuestion(response.response);
       
+      // The backend uses question_index, but our frontend expects current_question_index
       if (response.question_index !== undefined) {
         setCurrentQuestionIndex(response.question_index);
       }
@@ -607,18 +617,23 @@ export const ChatProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
         checkInSessionId
       );
       
-      setCurrentSurveyQuestion(response.response);
-      
-      if (response.question_index !== undefined) {
-        setCurrentQuestionIndex(response.question_index);
-      }
-      
-      if (response.possible_answers) {
-        setPossibleAnswers(response.possible_answers);
-      }
-      
+      // If we have survey results, this was the last question
       if (response.survey_results) {
         setSurveyResults(response.survey_results);
+        // Clear the current question to show the results
+        setCurrentSurveyQuestion(null);
+      } else {
+        // Otherwise, set the next question
+        setCurrentSurveyQuestion(response.response);
+        
+        // Update question index and possible answers for the next question
+        if (response.question_index !== undefined) {
+          setCurrentQuestionIndex(response.question_index);
+        }
+        
+        if (response.possible_answers) {
+          setPossibleAnswers(response.possible_answers);
+        }
       }
     } catch (error) {
       console.error('Error answering survey question:', error);
@@ -628,6 +643,7 @@ export const ChatProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
   };
   
   const closeSurvey = () => {
+    // Reset all survey-related state
     setSurveyMode(false);
     setCurrentSurveyQuestion(null);
     setCurrentQuestionIndex(null);
@@ -635,6 +651,7 @@ export const ChatProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     setPossibleAnswers([]);
     setCurrentQuestionnaireId(null);
     setSurveyResults(null);
+    setSurveyQuestionnaireOptions([]);
   };
   
   const value = {
